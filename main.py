@@ -20,8 +20,8 @@ from xgboost import XGBClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 import matplotlib.pyplot as plt
-from ydata_profiling import ProfileReport
-import dtale
+from dtale.views import startup
+from dtale.app import get_instance
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_absolute_error, mean_squared_error, r2_score
 from sklearn.naive_bayes import GaussianNB
@@ -48,6 +48,14 @@ if 'df_imputed_numeric' not in st.session_state:
 if 'data' not in st.session_state:
     st.session_state.data = None
 
+#Setting up dtale
+
+def save_to_dtale(df):
+    startup(data_id="1", data=df)
+
+def retrieve_from_dtale():
+    return get_instance("1").data
+
 # Setting up the page
 
 st.set_page_config(page_title= "Copper Industry Data Modeling| By Surabhi Yadav",
@@ -73,10 +81,10 @@ with st.sidebar:
 
 if selected == "Upload & Read":
 
-    st.title("File Upload and Display")
+    st.header("File Upload and Display", divider='orange')
 
     uploaded_file = st.file_uploader("Choose a CSV file", accept_multiple_files=False)
-    show = st.button("Show the file uploaded")
+    show = st.button("Show the file uploaded", use_container_width=True)
     if show:
         st.session_state.df = pd.read_csv(uploaded_file)
         st.write("Filename:", uploaded_file.name)
@@ -85,6 +93,8 @@ if selected == "Upload & Read":
 # Data Preprocessing
 
 if selected == "Data Preprocessing":
+
+    st.header("Data Preprocessing", divider='orange')
 
     #st.session_state.df.dropna()
     
@@ -103,6 +113,7 @@ if selected == "Data Preprocessing":
 
     categorical_columns = st.session_state.data.select_dtypes(include=['object']).columns.tolist()
     categorical_columns.remove('status')
+    categorical_columns.remove('quantity tons')
 
     #Treating outliers using Isolation Forest
     numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
@@ -111,47 +122,20 @@ if selected == "Data Preprocessing":
     mask = yhat != -1
     st.session_state.data = st.session_state.data[mask]
 
-    # Assuming st.session_state.data is already defined and numerical_columns, categorical_columns are identified
-    numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
-
-    # Checking skewness and applying transformations
+    #Checking skewness and apply transformations
     skewed_features = st.session_state.data[numerical_columns].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
     high_skew = skewed_features[abs(skewed_features) > 0.75]
     skewed_columns = high_skew.index
 
-    # Debug print for skewed features
-    print("Skewed features:\n", high_skew)s
-
-    # Apply transformation to numerical columns if necessary (for example, log or Box-Cox transformation)
-    for col in skewed_columns:
-        if all(st.session_state.data[col] > 0):  # Apply Box-Cox if all values are positive
-            st.session_state.data[col] = boxcox1p(st.session_state.data[col], 0.15)
-        else:  # Otherwise, apply log transformation safely
-            st.session_state.data[col] = np.log1p(st.session_state.data[col].clip(lower=0))
-
-    # Handling categorical columns
-    categorical_columns = st.session_state.data.select_dtypes(include=['object']).columns.tolist()
-    categorical_columns.remove('status')  # Assuming 'status' is excluded
-
     for col in categorical_columns:
         top_categories = st.session_state.data[col].value_counts().nlargest(10).index
-        print(f"Top categories for {col}:\n", top_categories)  # Debug print for top categories
         st.session_state.data[col] = np.where(st.session_state.data[col].isin(top_categories), st.session_state.data[col], 'Other')
 
-        # Debug print for transformed column
-        print(f"Transformed {col}:\n", st.session_state.data[col].value_counts())
-    # #Checking skewness and apply transformations
-    # skewed_features = st.session_state.data[numerical_columns].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
-    # high_skew = skewed_features[abs(skewed_features) > 0.75]
-    # skewed_columns = high_skew.index
-
-    # for col in categorical_columns:
-    #     top_categories = st.session_state.data[col].value_counts().nlargest(10).index
-    #     st.session_state.data[col] = np.where(st.session_state.data[col].isin(top_categories), st.session_state.data[col], 'Other')
-
-    #Encoding categorical variables
-    st.session_state.data = pd.get_dummies(st.session_state.data, columns=categorical_columns)
-
+    label_encoders = {}
+    for col in categorical_columns:
+        label_encoders[col] = LabelEncoder()
+        st.session_state.data[col] = label_encoders[col].fit_transform(st.session_state.data[col].astype(str))
+     
     #Scale numerical features
     scaler = StandardScaler()
     st.session_state.data[numerical_columns] = scaler.fit_transform(st.session_state.data[numerical_columns])
@@ -159,70 +143,93 @@ if selected == "Data Preprocessing":
     if 'status' in st.session_state.data.columns:
         st.session_state.data = st.session_state.data.dropna(subset=['status'])
     
+    if 'quantity tons' in st.session_state.data.columns:
+        st.session_state.data = st.session_state.data[~st.session_state.data['quantity tons'].astype(str).str.contains('e', na=False)]
+
     st.subheader("After dealing with the null values")
     st.write("")
     st.write("")
     st.write(st.session_state.data.isnull().sum())
-    st.dataframe(st.session_state.data)
+    #st.dataframe(st.session_state.data)
 
     st.session_state.data.to_csv(r'C:\Users\sy090\Downloads\PROJECTS\copper_industry_data_modeling\preprocessed_data.csv', index=False)
 
-# #EDA : Histogram and Boxplot: For exploring skewness and outliers respectively
+# EDA
 
-# #Plotting the histogram of numerical columns
-# raw_numerical_columns = data.select_dtypes(include=['number']).columns.tolist()
-# columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date']
-# numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
+if selected == "EDA":
 
-# nc_df = data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date'])
-# num_plots = len(numerical_columns)
-# num_cols = min(num_plots, 3)  
-# num_rows = (num_plots - 1) // num_cols + 1 if num_plots > 1 else 1 
+    st.header("EDA", divider='orange')
 
-# plt.figure() 
-# fig1, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5*num_rows))
+    st.subheader("Click on the button below to view general EDA")
+    gen_eda = st.button("General EDA", use_container_width=True)
+    if gen_eda:
+        
+        #Histogram and Boxplot: For exploring skewness and outliers respectively
 
-# if num_plots > 1:
-#     axes = axes.flatten()
-# else:
-#     axes = [axes]
+        #Plotting the histogram of numerical columns
+        st.write("")
+        st.subheader("Histogram Plots")
+        raw_numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
+        raw_numerical_columns.append('quantity tons')
+        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date']
+        numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
 
-# for i, col in enumerate(numerical_columns):
-#     sns.histplot(nc_df[col], ax=axes[i], kde=True, bins=20)  # Adjust bins as needed
-#     axes[i].set_title(col)
+        nc_df = st.session_state.data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date'])
+        num_plots = len(numerical_columns)
+        num_cols = min(num_plots, 3)  
+        num_rows = (num_plots - 1) // num_cols + 1 if num_plots > 1 else 1 
 
-# for i in range(num_plots, num_rows * num_cols):
-#     fig1.delaxes(axes[i])
+        plt.figure() 
+        fig1, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5*num_rows))
 
-# plt.tight_layout()
+        if num_plots > 1:
+            axes = axes.flatten()
+        else:
+            axes = [axes]
 
-# plt.show()
+        for i, col in enumerate(numerical_columns):
+            sns.histplot(nc_df[col], ax=axes[i], kde=True, bins=20)  # Adjust bins as needed
+            axes[i].set_title(col)
 
-# #Plotting the boxplots of numerical columns
-# raw_numerical_columns = data.select_dtypes(include=['number']).columns.tolist()
-# columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date']
-# numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
+        for i in range(num_plots, num_rows * num_cols):
+            fig1.delaxes(axes[i])
 
-# nc_df = data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date'])
-# num_plots = len(numerical_columns)
-# num_cols = min(num_plots, 3)  
-# num_rows = (num_plots - 1) // num_cols + 1 if num_plots > 1 else 1 
+        plt.tight_layout()
 
-# plt.figure()
-# fig2, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5*num_rows))
+        st.pyplot(fig1)
 
-# if num_plots > 1:
-#     axes = axes.flatten()
-# else:
-#     axes = [axes]
+        #Plotting the boxplots of numerical columns
+        st.write("")
+        st.subheader("Boxplots")
+        raw_numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
+        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date']
+        numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
+
+        nc_df = st.session_state.data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date'])
+        num_plots = len(numerical_columns)
+        num_cols = min(num_plots, 3)  
+        num_rows = (num_plots - 1) // num_cols + 1 if num_plots > 1 else 1 
+
+        plt.figure()
+        fig2, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5*num_rows))
+
+        if num_plots > 1:
+            axes = axes.flatten()
+        else:
+            axes = [axes]
+            
+        for i, col in enumerate(numerical_columns):
+                    sns.boxplot(data=nc_df[col], ax=axes[i])
+                    axes[i].set_title(col)
+
+        for i in range(num_plots, num_rows * num_cols):
+            fig2.delaxes(axes[i])
+
+        plt.tight_layout()
+
+        st.pyplot(fig2)
     
-# for i, col in enumerate(numerical_columns):
-#             sns.boxplot(data=nc_df[col], ax=axes[i])
-#             axes[i].set_title(col)
-
-# for i in range(num_plots, num_rows * num_cols):
-#     fig2.delaxes(axes[i])
-
-# plt.tight_layout()
-
-# plt.show()
+    st.subheader("Click on the button below to view automated EDA")
+    auto_eda = st.button("Automated EDA", use_container_width=True)
+    if auto_eda:
+        st.write("EDA is in progress...")
