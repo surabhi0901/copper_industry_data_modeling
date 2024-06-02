@@ -9,14 +9,14 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from xgboost import XGBRegressor
+# from xgboost import XGBRegressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
 from imblearn.over_sampling import SMOTE
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
+# from xgboost import XGBClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 import matplotlib.pyplot as plt
@@ -151,6 +151,16 @@ if selected == "Data Preprocessing":
     
     if 'quantity tons' in st.session_state.data.columns:
         st.session_state.data = st.session_state.data[~st.session_state.data['quantity tons'].astype(str).str.contains('e', na=False)]
+        
+    if 'item_date' in st.session_state.data.columns:
+        st.session_state.data = st.session_state.data[~st.session_state.data['item_date'].astype(str).str.contains('19950000.0', na=False)]
+        st.session_state.data = st.session_state.data[~st.session_state.data['item_date'].astype(str).str.contains('20191919.0', na=False)]
+        st.session_state.data = st.session_state.data[~st.session_state.data['item_date'].astype(str).str.contains('30310101.0', na=False)]
+        
+    if 'delivery date' in st.session_state.data.columns:
+        st.session_state.data = st.session_state.data[~st.session_state.data['delivery date'].astype(str).str.contains('30310101.0', na=False)]
+        st.session_state.data = st.session_state.data[~st.session_state.data['delivery date'].astype(str).str.contains('20212222.0', na=False)]
+        
     
     st.session_state.data = pd.DataFrame(st.session_state.data)
 
@@ -162,17 +172,19 @@ if selected == "Data Preprocessing":
         if col in st.session_state.data.columns:
             st.session_state.data[col] = pd.to_numeric(st.session_state.data[col], errors='coerce')
     
-    #Feature Engineering
-    #columns_to_drop = ['id']
-    #st.session_state.data = st.session_state.data.drop(columns=columns_to_drop)
-
+    #Converting float columnns to int
+    # columns_to_convert = ['item_date', 'delivery date', 'customer', 'country', 'application', 'selling_price']
+    # st.session_state[columns_to_convert] = st.session_state.data[columns_to_convert].astype(int)
+    
     st.subheader("After dealing with the null values")
     st.write("")
     st.write("")
     st.write(st.session_state.data.isnull().sum())
     #st.dataframe(st.session_state.data)
 
-    st.session_state.data.to_csv(r'C:\Users\sy090\Downloads\PROJECTS\copper_industry_data_modeling\preprocessed_data.csv', index=False)
+    # st.session_state.data.to_csv(r'C:\Users\sy090\Downloads\PROJECTS\copper_industry_data_modeling\preprocessed_data.csv', index=False)
+    # st.session_state.data.to_csv(r'C:\Users\SAMEER YADAV\Downloads\Surabhi\copper_industry_data_modeling\preprocessed_data.csv', index=False)
+    # C:\Users\SAMEER YADAV\Downloads\Surabhi\copper_industry_data_modeling
 
 # EDA
 
@@ -264,6 +276,7 @@ if selected == "EDA":
         plt.ylabel('Features')
         st.pyplot(plt)
 
+        #To do: Change the header of the pie charts not l;ooking aeshetic 
         #Piechart
         st.write("")
         st.markdown("**Piechart**")
@@ -272,16 +285,26 @@ if selected == "EDA":
         for col in columns_to_visualize:
             st.write(f"### Pie Chart of {col}")
             fig, ax = plt.subplots(figsize=(8, 8))
-            st.session_state.data[col].value_counts().plot.pie(autopct='', startangle=90, ax=ax)
+            x = st.session_state.data[col].unique()
+            y = st.session_state.data[col].value_counts()
+            porcent = 100.*y/y.sum()
+
+            patches, texts = plt.pie(y, startangle=90)
             labels = ['{0} - {1:1.2f} %'.format(i,j) for i,j in zip(x, porcent)]
+
             sort_legend = True
-            ax.legend(title=col, loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+            if sort_legend:
+                patches, labels, dummy =  zip(*sorted(zip(patches, labels, y),
+                                                    key=lambda x: x[2],
+                                                    reverse=True))
+
+            ax.legend(patches, labels, loc='center left', bbox_to_anchor=(1, 0, 0.5, 1), title=col)
             st.pyplot(fig)
 
         # Count plots
         st.write("")
-        st.markdown("**Piechart**")
-        columns_to_visualize = ['country', 'status', 'item type']
+        st.markdown("**Count Plots**")
+        columns_to_visualize = ['country', 'status', 'item type']   
 
         for col in columns_to_visualize:
             st.write(f"### Count Plot of {col}")
@@ -292,9 +315,45 @@ if selected == "EDA":
             ax.legend(loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
             st.pyplot(fig)
     
+        #Barcharts
+        st.write("")
+        st.markdown("**Barcharts**")
+        
+    #To do: Check the display because there is no display
     st.write("")
     st.write("")
     st.subheader("Click on the button below to view automated EDA")
     auto_eda = st.button("Automated EDA", use_container_width=True)
     if auto_eda:
-        st.write("EDA is in progress...")
+        save_to_dtale(st.session_state.data)
+        st.markdown('<iframe src="/dtale/main/1" width="1000" height="600"></iframe>', unsafe_allow_html=True)
+        st.markdown('<a href="/dtale/main/1" target="_blank">Open D-Tale</a>', unsafe_allow_html=True)
+        
+# Feature Engineering
+
+if selected == "Feature Engineering":
+    
+    st.header("Feature Engineering", divider = 'orange')
+    
+    st.session_state.data['item_date'] = pd.to_datetime(st.session_state.data['item_date'].astype(str), format='%Y%m%d.0')
+    st.session_state.data['delivery date'] = pd.to_datetime(st.session_state.data['delivery date'].astype(str), format='%Y%m%d.0')
+    st.dataframe(st.session_state.data)
+
+    # Extract year, month, day from item_date
+    st.session_state.data['item_year'] = st.session_state.data['item_date'].dt.year
+    st.session_state.data['item_month'] = st.session_state.data['item_date'].dt.month
+    st.session_state.data['item_day'] = st.session_state.data['item_date'].dt.day
+    
+    st.session_state.data['delivery_year'] = st.session_state.data['delivery date'].dt.year
+    st.session_state.data['delivery_month'] = st.session_state.data['delivery date'].dt.month
+    st.session_state.data['delivery_day'] = st.session_state.data['delivery date'].dt.day
+
+    st.session_state.data['delivery_time_days'] = (st.session_state.data['delivery date'] - st.session_state.data['item_date']).dt.days
+    st.session_state.data.drop(columns=['item_date', 'delivery date'], inplace=True)
+    
+    st.dataframe(st.session_state.data)
+    
+    
+    #Feature Engineering
+    #columns_to_drop = ['id']
+    #st.session_state.data = st.session_state.data.drop(columns=columns_to_drop)
