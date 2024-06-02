@@ -105,7 +105,7 @@ if selected == "Data Preprocessing":
 
     #Removing null values or filling them out
     st.session_state.df['material_ref'].replace('00000', np.nan, inplace=True)
-    numeric_columns = st.session_state.df.select_dtypes(include=['number']).columns
+    numeric_columns = st.session_state.df.select_dtypes(include=['number']).columns.tolist()
     imputer = SimpleImputer(strategy='median')
     st.session_state.df_imputed_numeric = imputer.fit_transform(st.session_state.df[numeric_columns])
     st.session_state.df_imputed_numeric = pd.DataFrame(st.session_state.df_imputed_numeric, columns=numeric_columns)
@@ -117,6 +117,12 @@ if selected == "Data Preprocessing":
 
     #Treating outliers using Isolation Forest
     numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
+    numerical_columns.remove('item_date')
+    numerical_columns.remove('delivery date')
+    numerical_columns.remove('customer')
+    numerical_columns.remove('country')
+    numerical_columns.remove('application')
+    numerical_columns.remove('selling_price')
     iso = IsolationForest(contamination=0.1)
     yhat = iso.fit_predict(st.session_state.data[numerical_columns])
     mask = yhat != -1
@@ -145,6 +151,20 @@ if selected == "Data Preprocessing":
     
     if 'quantity tons' in st.session_state.data.columns:
         st.session_state.data = st.session_state.data[~st.session_state.data['quantity tons'].astype(str).str.contains('e', na=False)]
+    
+    st.session_state.data = pd.DataFrame(st.session_state.data)
+
+    # Identify columns to convert
+    columns_to_convert = ['quantity tons']
+
+    # Convert specified columns to numeric
+    for col in columns_to_convert:
+        if col in st.session_state.data.columns:
+            st.session_state.data[col] = pd.to_numeric(st.session_state.data[col], errors='coerce')
+    
+    #Feature Engineering
+    #columns_to_drop = ['id']
+    #st.session_state.data = st.session_state.data.drop(columns=columns_to_drop)
 
     st.subheader("After dealing with the null values")
     st.write("")
@@ -168,13 +188,12 @@ if selected == "EDA":
 
         #Plotting the histogram of numerical columns
         st.write("")
-        st.subheader("Histogram Plots")
+        st.markdown("**Histogram Plots**")
         raw_numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
-        raw_numerical_columns.append('quantity tons')
-        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date']
+        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date', 'id', 'material_ref']
         numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
 
-        nc_df = st.session_state.data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date'])
+        nc_df = st.session_state.data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date', 'id', 'material_ref'])
         num_plots = len(numerical_columns)
         num_cols = min(num_plots, 3)  
         num_rows = (num_plots - 1) // num_cols + 1 if num_plots > 1 else 1 
@@ -189,7 +208,7 @@ if selected == "EDA":
 
         for i, col in enumerate(numerical_columns):
             sns.histplot(nc_df[col], ax=axes[i], kde=True, bins=20)  # Adjust bins as needed
-            axes[i].set_title(col)
+            # axes[i].set_title(col)
 
         for i in range(num_plots, num_rows * num_cols):
             fig1.delaxes(axes[i])
@@ -200,12 +219,12 @@ if selected == "EDA":
 
         #Plotting the boxplots of numerical columns
         st.write("")
-        st.subheader("Boxplots")
+        st.markdown("**Boxplots**")
         raw_numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
-        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date']
+        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date', 'id', 'material_ref']
         numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
 
-        nc_df = st.session_state.data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date'])
+        nc_df = st.session_state.data.drop(columns=['item_date', 'customer', 'country', 'product_ref', 'delivery date', 'id', 'material_ref'])
         num_plots = len(numerical_columns)
         num_cols = min(num_plots, 3)  
         num_rows = (num_plots - 1) // num_cols + 1 if num_plots > 1 else 1 
@@ -220,7 +239,7 @@ if selected == "EDA":
             
         for i, col in enumerate(numerical_columns):
                     sns.boxplot(data=nc_df[col], ax=axes[i])
-                    axes[i].set_title(col)
+                    # axes[i].set_title(col)
 
         for i in range(num_plots, num_rows * num_cols):
             fig2.delaxes(axes[i])
@@ -228,7 +247,53 @@ if selected == "EDA":
         plt.tight_layout()
 
         st.pyplot(fig2)
+
+        #Heatmap
+        st.write("")
+        st.markdown("**Heatmap**")
+        raw_numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
+        columns_to_drop = ['item_date', 'customer', 'country', 'product_ref', 'delivery date', 'id', 'material_ref']
+        numerical_columns = [column for column in raw_numerical_columns if column not in columns_to_drop]
+        numeric_df = st.session_state.data[numerical_columns]
+        corr_matrix = numeric_df.corr()
+        plt.figure(figsize=(10, 8))
+        mask = np.triu(np.ones_like(corr_matrix))
+        sns.heatmap(corr_matrix, annot=True, fmt=".2f", mask = mask)
+        plt.title('Correlation Heatmap')
+        plt.xlabel('Features')
+        plt.ylabel('Features')
+        st.pyplot(plt)
+
+        #Piechart
+        st.write("")
+        st.markdown("**Piechart**")
+        columns_to_visualize = ['country', 'status', 'item type']
+
+        for col in columns_to_visualize:
+            st.write(f"### Pie Chart of {col}")
+            fig, ax = plt.subplots(figsize=(8, 8))
+            st.session_state.data[col].value_counts().plot.pie(autopct='', startangle=90, ax=ax)
+            labels = ['{0} - {1:1.2f} %'.format(i,j) for i,j in zip(x, porcent)]
+            sort_legend = True
+            ax.legend(title=col, loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+            st.pyplot(fig)
+
+        # Count plots
+        st.write("")
+        st.markdown("**Piechart**")
+        columns_to_visualize = ['country', 'status', 'item type']
+
+        for col in columns_to_visualize:
+            st.write(f"### Count Plot of {col}")
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.countplot(y=col, data=st.session_state.data, order=st.session_state.data[col].value_counts().index, ax=ax)
+            ax.set_xlabel('Count')
+            ax.set_ylabel(col)
+            ax.legend(loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+            st.pyplot(fig)
     
+    st.write("")
+    st.write("")
     st.subheader("Click on the button below to view automated EDA")
     auto_eda = st.button("Automated EDA", use_container_width=True)
     if auto_eda:
