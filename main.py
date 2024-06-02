@@ -337,9 +337,7 @@ if selected == "Feature Engineering":
     
     st.session_state.data['item_date'] = pd.to_datetime(st.session_state.data['item_date'].astype(str), format='%Y%m%d.0')
     st.session_state.data['delivery date'] = pd.to_datetime(st.session_state.data['delivery date'].astype(str), format='%Y%m%d.0')
-    st.dataframe(st.session_state.data)
 
-    # Extract year, month, day from item_date
     st.session_state.data['item_year'] = st.session_state.data['item_date'].dt.year
     st.session_state.data['item_month'] = st.session_state.data['item_date'].dt.month
     st.session_state.data['item_day'] = st.session_state.data['item_date'].dt.day
@@ -349,7 +347,7 @@ if selected == "Feature Engineering":
     st.session_state.data['delivery_day'] = st.session_state.data['delivery date'].dt.day
 
     st.session_state.data['delivery_time_days'] = (st.session_state.data['delivery date'] - st.session_state.data['item_date']).dt.days
-    st.session_state.data.drop(columns=['item_date', 'delivery date'], inplace=True)
+    st.session_state.data.drop(columns=['item_date', 'delivery date', 'item_year', 'item_month', 'item_day', 'delivery_year', 'delivery_month', 'delivery_day'], inplace=True)
     
     st.dataframe(st.session_state.data)
     
