@@ -114,6 +114,8 @@ if selected == "Data Preprocessing":
     categorical_columns = st.session_state.data.select_dtypes(include=['object']).columns.tolist()
     categorical_columns.remove('status')
     categorical_columns.remove('quantity tons')
+    categorical_columns.remove('id')
+    categorical_columns.remove('material_ref')
 
     #Treating outliers using Isolation Forest
     numerical_columns = st.session_state.data.select_dtypes(include=['number']).columns.tolist()
@@ -123,6 +125,7 @@ if selected == "Data Preprocessing":
     numerical_columns.remove('country')
     numerical_columns.remove('application')
     numerical_columns.remove('selling_price')
+    numerical_columns.remove('product_ref')
     iso = IsolationForest(contamination=0.1)
     yhat = iso.fit_predict(st.session_state.data[numerical_columns])
     mask = yhat != -1
@@ -171,10 +174,6 @@ if selected == "Data Preprocessing":
     for col in columns_to_convert:
         if col in st.session_state.data.columns:
             st.session_state.data[col] = pd.to_numeric(st.session_state.data[col], errors='coerce')
-    
-    #Converting float columnns to int
-    # columns_to_convert = ['item_date', 'delivery date', 'customer', 'country', 'application', 'selling_price']
-    # st.session_state[columns_to_convert] = st.session_state.data[columns_to_convert].astype(int)
     
     st.subheader("After dealing with the null values")
     st.write("")
@@ -314,12 +313,13 @@ if selected == "EDA":
             ax.set_ylabel(col)
             ax.legend(loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
             st.pyplot(fig)
-    
+
+        #To do: Generate barcharts
         #Barcharts
         st.write("")
         st.markdown("**Barcharts**")
         
-    #To do: Check the display because there is no display
+    #Automated EDA
     st.write("")
     st.write("")
     st.subheader("Click on the button below to view automated EDA")
@@ -335,6 +335,7 @@ if selected == "Feature Engineering":
     
     st.header("Feature Engineering", divider = 'orange')
     
+    #Creating new feature
     st.session_state.data['item_date'] = pd.to_datetime(st.session_state.data['item_date'].astype(str), format='%Y%m%d.0')
     st.session_state.data['delivery date'] = pd.to_datetime(st.session_state.data['delivery date'].astype(str), format='%Y%m%d.0')
 
@@ -349,9 +350,9 @@ if selected == "Feature Engineering":
     st.session_state.data['delivery_time_days'] = (st.session_state.data['delivery date'] - st.session_state.data['item_date']).dt.days
     st.session_state.data.drop(columns=['item_date', 'delivery date', 'item_year', 'item_month', 'item_day', 'delivery_year', 'delivery_month', 'delivery_day'], inplace=True)
     
+    # st.dataframe(st.session_state.data)
+    
+    #Dropping irrelevant columns
+    st.session_state.data.drop(columns=['id', 'material_ref'], axis=1, inplace=True)
+    
     st.dataframe(st.session_state.data)
-    
-    
-    #Feature Engineering
-    #columns_to_drop = ['id']
-    #st.session_state.data = st.session_state.data.drop(columns=columns_to_drop)
