@@ -1,3 +1,5 @@
+# How to run this: dtale-streamlit run c:/your-path/your-script.py
+
 # Importing necessary libraries
 
 import pandas as pd
@@ -36,8 +38,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.ensemble import IsolationForest
 from scipy.stats import skew, boxcox
 from scipy.special import boxcox1p
+import re
+import pickle
 
-#Initializing the session state
+# Initializing the session state
 
 if 'df' not in st.session_state:
     st.session_state.df = None
@@ -48,7 +52,7 @@ if 'df_imputed_numeric' not in st.session_state:
 if 'data' not in st.session_state:
     st.session_state.data = None
 
-#Setting up dtale
+# Setting up dtale
 
 def save_to_dtale(df):
     startup(data_id="1", data=df)
@@ -83,6 +87,7 @@ if selected == "Upload & Read":
 
     st.header("File Upload and Display", divider='orange')
 
+    st.subheader("Upload the dataset below")
     uploaded_file = st.file_uploader("Choose a CSV file", accept_multiple_files=False)
     show = st.button("Show the file uploaded", use_container_width=True)
     if show:
@@ -145,12 +150,15 @@ if selected == "Data Preprocessing":
         label_encoders[col] = LabelEncoder()
         st.session_state.data[col] = label_encoders[col].fit_transform(st.session_state.data[col].astype(str))
      
-    #Scale numerical features
+    #Scaling numerical features
     scaler = StandardScaler()
     st.session_state.data[numerical_columns] = scaler.fit_transform(st.session_state.data[numerical_columns])
 
     if 'status' in st.session_state.data.columns:
         st.session_state.data = st.session_state.data.dropna(subset=['status'])
+        #pattern = re.compile(r'Draft|Not lost for AM|Offerable|Offered|Revised|To be approved|Wonderful')
+        #st.session_state.data = st.session_state.data[~st.session_state.data['status'].astype(str).str.contains(pattern, na=False)]
+        st.session_state.data = st.session_state.data[st.session_state.data['status'].isin(['Won', 'Lost'])]
     
     if 'quantity tons' in st.session_state.data.columns:
         st.session_state.data = st.session_state.data[~st.session_state.data['quantity tons'].astype(str).str.contains('e', na=False)]
@@ -167,10 +175,9 @@ if selected == "Data Preprocessing":
     
     st.session_state.data = pd.DataFrame(st.session_state.data)
 
-    # Identify columns to convert
+    #Identifying columns to convert to numeric type
     columns_to_convert = ['quantity tons']
 
-    # Convert specified columns to numeric
     for col in columns_to_convert:
         if col in st.session_state.data.columns:
             st.session_state.data[col] = pd.to_numeric(st.session_state.data[col], errors='coerce')
@@ -183,7 +190,6 @@ if selected == "Data Preprocessing":
 
     # st.session_state.data.to_csv(r'C:\Users\sy090\Downloads\PROJECTS\copper_industry_data_modeling\preprocessed_data.csv', index=False)
     # st.session_state.data.to_csv(r'C:\Users\SAMEER YADAV\Downloads\Surabhi\copper_industry_data_modeling\preprocessed_data.csv', index=False)
-    # C:\Users\SAMEER YADAV\Downloads\Surabhi\copper_industry_data_modeling
 
 # EDA
 
@@ -275,56 +281,55 @@ if selected == "EDA":
         plt.ylabel('Features')
         st.pyplot(plt)
 
-        #To do: Change the header of the pie charts not l;ooking aeshetic 
+        col1,col2 = st.columns(2)
+
         #Piechart
-        st.write("")
-        st.markdown("**Piechart**")
-        columns_to_visualize = ['country', 'status', 'item type']
+        with col1:
+            st.write("")
+            st.markdown("**Piechart**")
+            columns_to_visualize = ['country', 'status', 'item type']
 
-        for col in columns_to_visualize:
-            st.write(f"### Pie Chart of {col}")
-            fig, ax = plt.subplots(figsize=(8, 8))
-            x = st.session_state.data[col].unique()
-            y = st.session_state.data[col].value_counts()
-            porcent = 100.*y/y.sum()
+            for col in columns_to_visualize:
+                st.write(f"Pie Chart of {col}")
+                fig, ax = plt.subplots(figsize=(10, 6))
+                x = st.session_state.data[col].unique()
+                y = st.session_state.data[col].value_counts()
+                porcent = 100.*y/y.sum()
 
-            patches, texts = plt.pie(y, startangle=90)
-            labels = ['{0} - {1:1.2f} %'.format(i,j) for i,j in zip(x, porcent)]
+                patches, texts = plt.pie(y, startangle=90)
+                labels = ['{0} - {1:1.2f} %'.format(i,j) for i,j in zip(x, porcent)]
 
-            sort_legend = True
-            if sort_legend:
-                patches, labels, dummy =  zip(*sorted(zip(patches, labels, y),
-                                                    key=lambda x: x[2],
-                                                    reverse=True))
+                sort_legend = True
+                if sort_legend:
+                    patches, labels, dummy =  zip(*sorted(zip(patches, labels, y),
+                                                        key=lambda x: x[2],
+                                                        reverse=True))
 
-            ax.legend(patches, labels, loc='center left', bbox_to_anchor=(1, 0, 0.5, 1), title=col)
-            st.pyplot(fig)
-
-        # Count plots
-        st.write("")
-        st.markdown("**Count Plots**")
-        columns_to_visualize = ['country', 'status', 'item type']   
-
-        for col in columns_to_visualize:
-            st.write(f"### Count Plot of {col}")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.countplot(y=col, data=st.session_state.data, order=st.session_state.data[col].value_counts().index, ax=ax)
-            ax.set_xlabel('Count')
-            ax.set_ylabel(col)
-            ax.legend(loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
-            st.pyplot(fig)
-
-        #To do: Generate barcharts
-        #Barcharts
-        st.write("")
-        st.markdown("**Barcharts**")
+                ax.legend(patches, labels, loc='center left', bbox_to_anchor=(1, 0, 0.5, 1), title=col)
+                st.pyplot(fig)
         
+        # Count plots
+        with col2:
+            st.write("")
+            st.markdown("**Count Plots**")
+            columns_to_visualize = ['country', 'status', 'item type']   
+
+            for col in columns_to_visualize:
+                st.write(f"Count Plot of {col}")
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.countplot(y=col, data=st.session_state.data, order=st.session_state.data[col].value_counts().index, ax=ax)
+                ax.set_xlabel('Count')
+                ax.set_ylabel(col)
+                ax.legend(loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+                st.pyplot(fig)
+
     #Automated EDA
     st.write("")
     st.write("")
     st.subheader("Click on the button below to view automated EDA")
     auto_eda = st.button("Automated EDA", use_container_width=True)
     if auto_eda:
+        st.markdown("**Interactive dashboard (D-Tale)**")
         save_to_dtale(st.session_state.data)
         st.markdown('<iframe src="/dtale/main/1" width="1000" height="600"></iframe>', unsafe_allow_html=True)
         st.markdown('<a href="/dtale/main/1" target="_blank">Open D-Tale</a>', unsafe_allow_html=True)
@@ -349,10 +354,86 @@ if selected == "Feature Engineering":
 
     st.session_state.data['delivery_time_days'] = (st.session_state.data['delivery date'] - st.session_state.data['item_date']).dt.days
     st.session_state.data.drop(columns=['item_date', 'delivery date', 'item_year', 'item_month', 'item_day', 'delivery_year', 'delivery_month', 'delivery_day'], inplace=True)
-    
-    # st.dataframe(st.session_state.data)
+    st.session_state.data['delivery_time_days'] = st.session_state.data['delivery_time_days'].abs()
+    #st.dataframe(st.session_state.data)
     
     #Dropping irrelevant columns
     st.session_state.data.drop(columns=['id', 'material_ref'], axis=1, inplace=True)
     
+    st.write("")
+    st.write("")
+    st.subheader("Display of the dataset after preprocessing and feature engineering")
     st.dataframe(st.session_state.data)
+
+    #st.session_state.data.to_csv(r'C:\Users\sy090\Downloads\PROJECTS\copper_industry_data_modeling\preprocessed_data.csv', index=False)
+    #st.session_state.data.to_csv(r'C:\Users\SAMEER YADAV\Downloads\Surabhi\copper_industry_data_modeling\preprocessed_data.csv', index=False)
+
+    #Selecting the features
+
+
+# Model Development & Evaluation
+
+if selected == "Model Development & Evaluation":
+
+    st.header("Model Development & Evaluation", divider = 'orange')
+
+    #Loading the scaler
+    with open('/mnt/data/scaler.pkl', 'rb') as f:
+        scaler = pickle.load(f)
+
+    #Loading regression models
+    regression_models = {}
+    for model_name in ["linear_regression", "decision_tree_regressor", "random_forest_regressor", 
+                    "gradient_boosting_regressor", "xgboost_regressor", "kneighbors_regressor"]:
+        with open(f'/mnt/data/{model_name}_regressor.pkl', 'rb') as f:
+            regression_models[model_name] = pickle.load(f)
+
+    #Loading classification models
+    classification_models = {}
+    for model_name in ["logistic_regression", "decision_tree", "random_forest", 
+                    "xgboost", "knn", "naive_bayes"]:
+        with open(f'/mnt/data/{model_name}_classifier.pkl', 'rb') as f:
+            classification_models[model_name] = pickle.load(f)
+
+    # Streamlit interface
+    st.title('Copper Industry Prediction App')
+
+    # Task selection
+    task = st.selectbox('Select Task', ['Regression', 'Classification'])
+
+    # Input fields
+    if task == 'Regression':
+        # Model selection
+        reg_model_name = st.selectbox('Select Regression Model', list(regression_models.keys()))
+        regressor = regression_models[reg_model_name]
+
+        # Collect input values for regression
+        inputs = {}
+        for col in X_reg.columns:
+            inputs[col] = st.text_input(f'Enter value for {col}')
+        
+        # Predict selling price
+        if st.button('Predict Selling Price'):
+            input_df = pd.DataFrame([inputs])
+            input_df = input_df.apply(pd.to_numeric, errors='ignore')
+            input_df = scaler.transform(input_df)
+            prediction = regressor.predict(input_df)
+            st.write(f'Predicted Selling Price: {prediction[0]}')
+
+    elif task == 'Classification':
+        # Model selection
+        cls_model_name = st.selectbox('Select Classification Model', list(classification_models.keys()))
+        classifier = classification_models[cls_model_name]
+
+        # Collect input values for classification
+        inputs = {}
+        for col in X_cls.columns:
+            inputs[col] = st.text_input(f'Enter value for {col}')
+        
+        # Predict status
+        if st.button('Predict Status'):
+            input_df = pd.DataFrame([inputs])
+            input_df = input_df.apply(pd.to_numeric, errors='ignore')
+            input_df = scaler.transform(input_df)
+            prediction = classifier.predict(input_df)
+            st.write('Predicted Status: WON' if prediction[0] == 1 else 'Predicted Status: LOST')    
