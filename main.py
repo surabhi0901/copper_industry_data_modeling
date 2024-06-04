@@ -368,35 +368,31 @@ if selected == "Feature Engineering":
     #st.session_state.data.to_csv(r'C:\Users\sy090\Downloads\PROJECTS\copper_industry_data_modeling\preprocessed_data.csv', index=False)
     #st.session_state.data.to_csv(r'C:\Users\SAMEER YADAV\Downloads\Surabhi\copper_industry_data_modeling\preprocessed_data.csv', index=False)
 
-    #Selecting the features
-
-
 # Model Development & Evaluation
 
 if selected == "Model Development & Evaluation":
 
     st.header("Model Development & Evaluation", divider = 'orange')
 
-    #Loading the scaler
-    with open('/mnt/data/scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
+    # Load the scaler
+    with open('C:/Users/sy090/Downloads/PROJECTS/copper_industry_data_modeling/scaler_r.pkl', 'rb') as f:
+        scaler_r = pickle.load(f)
+    with open('C:/Users/sy090/Downloads/PROJECTS/copper_industry_data_modeling/scaler_c.pkl', 'rb') as f:
+        scaler_c = pickle.load(f)
 
     #Loading regression models
     regression_models = {}
-    for model_name in ["linear_regression", "decision_tree_regressor", "random_forest_regressor", 
-                    "gradient_boosting_regressor", "xgboost_regressor", "kneighbors_regressor"]:
-        with open(f'/mnt/data/{model_name}_regressor.pkl', 'rb') as f:
+    for model_name in ["linear", "decision_tree", "random_forest", 
+                    "gradient_boosting", "xgboost", "kneighbors"]:
+        with open(f'C:/Users/sy090/Downloads/PROJECTS/copper_industry_data_modeling/{model_name}_regressor.pkl', 'rb') as f:
             regression_models[model_name] = pickle.load(f)
 
     #Loading classification models
     classification_models = {}
     for model_name in ["logistic_regression", "decision_tree", "random_forest", 
                     "xgboost", "knn", "naive_bayes"]:
-        with open(f'/mnt/data/{model_name}_classifier.pkl', 'rb') as f:
+        with open(f'C:/Users/sy090/Downloads/PROJECTS/copper_industry_data_modeling/{model_name}_classifier.pkl', 'rb') as f:
             classification_models[model_name] = pickle.load(f)
-
-    # Streamlit interface
-    st.title('Copper Industry Prediction App')
 
     # Task selection
     task = st.selectbox('Select Task', ['Regression', 'Classification'])
@@ -408,16 +404,18 @@ if selected == "Model Development & Evaluation":
         regressor = regression_models[reg_model_name]
 
         # Collect input values for regression
-        inputs = {}
+        X_reg = st.session_state.data.drop(columns=['selling_price', 'customer', 'product_ref', 'status'])
+        y_reg = st.session_state.data['selling_price']
+        inputs_r = {}
         for col in X_reg.columns:
-            inputs[col] = st.text_input(f'Enter value for {col}')
+            inputs_r[col] = st.text_input(f'Enter value for {col}')
         
         # Predict selling price
         if st.button('Predict Selling Price'):
-            input_df = pd.DataFrame([inputs])
-            input_df = input_df.apply(pd.to_numeric, errors='ignore')
-            input_df = scaler.transform(input_df)
-            prediction = regressor.predict(input_df)
+            input_df_r = pd.DataFrame([inputs_r])
+            input_df_r = input_df_r.apply(pd.to_numeric, errors='ignore')
+            input_df_r = scaler_r.transform(input_df_r)
+            prediction = regressor.predict(input_df_r)
             st.write(f'Predicted Selling Price: {prediction[0]}')
 
     elif task == 'Classification':
@@ -426,14 +424,17 @@ if selected == "Model Development & Evaluation":
         classifier = classification_models[cls_model_name]
 
         # Collect input values for classification
-        inputs = {}
+        # st.session_state.data[st.session_state.data['status'].isin(['WON', 'LOST'])]
+        X_cls = st.session_state.data.drop(columns=['status', 'customer', 'thickness', 'width'])
+        y_cls = st.session_state.data['status'].map({'Won': 1, 'Lost': 0})
+        inputs_c = {}
         for col in X_cls.columns:
-            inputs[col] = st.text_input(f'Enter value for {col}')
+            inputs_c[col] = st.text_input(f'Enter value for {col}')
         
         # Predict status
         if st.button('Predict Status'):
-            input_df = pd.DataFrame([inputs])
-            input_df = input_df.apply(pd.to_numeric, errors='ignore')
-            input_df = scaler.transform(input_df)
-            prediction = classifier.predict(input_df)
-            st.write('Predicted Status: WON' if prediction[0] == 1 else 'Predicted Status: LOST')    
+            input_df_c = pd.DataFrame([inputs_c])
+            input_df_c = input_df_c.apply(pd.to_numeric, errors='ignore')
+            input_df_c = scaler_c.transform(input_df_c)
+            prediction = classifier.predict(input_df_c)
+            st.write('Predicted Status: Won' if prediction[0] == 1 else 'Predicted Status: Lost')    
