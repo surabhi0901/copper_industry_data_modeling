@@ -11,7 +11,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-# from xgboost import XGBRegressor
+from xgboost import XGBRegressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
 from imblearn.over_sampling import SMOTE
